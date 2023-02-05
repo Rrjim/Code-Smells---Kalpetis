@@ -103,40 +103,64 @@ public class HighWatermarkTest
             this.trace = trace;
         }
 
-        @Override
-        public void run()
+        public ZMQ.Socket mngReceiver()
         {
             Thread.currentThread().setName("Worker #" + index);
 
-            ZContext context = new ZContext(1);
-
             //  Socket to receive messages on
-            ZMQ.Socket receiver = context.createSocket(SocketType.PULL);
+            ZMQ.Socket receiver = null;
+            receiver = new ZContext(1).createSocket(SocketType.PULL);
             receiver.setImmediate(false);
             receiver.connect(dispatch);
-
+            return receiver;
+        }
+            
+            public ZMQ.Socket mngSender() 
+            {
+            
             //  Socket to send messages to
-            ZMQ.Socket sender = context.createSocket(SocketType.PUSH);
+            	ZMQ.Socket sender = null;
+            sender = new ZContext(1).createSocket(SocketType.PUSH);
             sender.setImmediate(false);
             sender.connect(collect);
-
-            ZMQ.Socket controller = context.createSocket(SocketType.SUB);
+            return sender;
+            }
+            
+            public ZMQ.Socket mngController()
+            {
+            	ZMQ.Socket controller = null;
+            controller = new ZContext(1).createSocket(SocketType.SUB);
             controller.subscribe("FINISH");
             controller.connect(control);
+            return controller;
+            }
+            
+            public ZMQ.Poller mngPoller(ZMQ.Socket r, ZMQ.Socket s, ZMQ.Socket c)
+            {
+            ZMQ.Poller poller = new ZMQ.Poller(null);
+            poller = new ZContext(1).createPoller(3);
+            poller.register(mngReceiver(), ZMQ.Poller.POLLIN);
+            poller.register(mngSender(), ZMQ.Poller.POLLOUT);
+            poller.register(mngController(), ZMQ.Poller.POLLIN);
+            return poller;
+            }
 
-            ZMQ.Poller poller = context.createPoller(3);
-            poller.register(receiver, ZMQ.Poller.POLLIN);
-            poller.register(sender, ZMQ.Poller.POLLOUT);
-            poller.register(controller, ZMQ.Poller.POLLIN);
-
+            @Override
+            public void run() {
             int idx = 0;
+            ZContext context = new ZContext(1);
+            ZMQ.Socket receiver = mngReceiver();
+            ZMQ.Socket sender = mngSender();
+            ZMQ.Socket controller = mngController();
+            ZMQ.Poller poller = mngPoller(receiver, sender, controller);
+            
 
             try {
                 System.out.println("Started worker process #" + index);
 
                 //  Process tasks forever
                 while (!Thread.currentThread().isInterrupted()) {
-                    poller.poll(1000);
+                    mngPoller(receiver, sender, controller).poll(1000);
                     boolean in = poller.pollin(0);
                     boolean out = poller.pollout(1);
                     boolean ctrl = poller.pollin(2);
