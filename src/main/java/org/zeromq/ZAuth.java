@@ -691,7 +691,7 @@ public class ZAuth implements Closeable
                 rc = pipe.send(OK);
                 assert (rc);
             }
-            catch (ZMQException e) {
+            catch (Throwable e) {
                 System.out.println("ZAuth: Error");
                 e.printStackTrace();
                 rc = pipe.send("ERROR");

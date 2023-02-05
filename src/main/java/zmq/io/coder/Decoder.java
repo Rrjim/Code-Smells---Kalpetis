@@ -65,6 +65,8 @@ public abstract class Decoder extends DecoderBase
     protected final Step messageReady       = new MessageReady();
 
     private final MsgAllocator allocator;
+    private Errno errno;
+    int bufsize;
 
     public Decoder(Errno errno, int bufsize, long maxmsgsize, MsgAllocator allocator)
     {

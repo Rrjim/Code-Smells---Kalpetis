@@ -1005,7 +1005,7 @@ public class ZMQ
                 set &= base.errno() != ZError.EINVAL;
                 return set;
             }
-            catch (CtxTerminatedException e) {
+            catch (Throwable e) {
                 return false;
             }
         }
@@ -4229,7 +4229,7 @@ public class ZMQ
             try {
                 return zmq.ZMQ.poll(selector, pollItems, items.size(), tout);
             }
-            catch (ZError.IOException e) {
+            catch (Throwable e) {
                 if (context.isTerminated()) {
                     return 0;
                 }

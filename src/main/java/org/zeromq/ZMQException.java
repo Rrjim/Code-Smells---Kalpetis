@@ -2,7 +2,7 @@ package org.zeromq;
 
 import zmq.ZError;
 
-public class ZMQException extends UncheckedZMQException
+public class ZMQException extends RuntimeException
 {
     private static final long serialVersionUID = -978820750094924644L;
 

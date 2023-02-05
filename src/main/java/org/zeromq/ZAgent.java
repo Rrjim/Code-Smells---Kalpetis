@@ -196,7 +196,7 @@ public interface ZAgent
                 }
                 return msg;
             }
-            catch (ZMQException e) {
+            catch (Throwable e) {
                 locked = true;
                 return null;
             }
