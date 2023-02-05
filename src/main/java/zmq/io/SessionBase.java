@@ -305,19 +305,19 @@ public class SessionBase extends Own implements Pipe.IPipeEvents, IPollEvents
         // Session might be reused with zap connexion already established, don't panic
         if (zapPipe == null) {
             Ctx.Endpoint peer = findEndpoint("inproc://zeromq.zap.01");
-            if (peer.socket == null) {
+            if (peer.getSocket() == null) {
                 errno.set(ZError.ECONNREFUSED);
                 return ZError.ECONNREFUSED;
             }
-            if (peer.options.type != ZMQ.ZMQ_REP && peer.options.type != ZMQ.ZMQ_ROUTER &&
-                        peer.options.type != ZMQ.ZMQ_SERVER) {
+            if (peer.getOptions().type != ZMQ.ZMQ_REP && peer.getOptions().type != ZMQ.ZMQ_ROUTER &&
+                        peer.getOptions().type != ZMQ.ZMQ_SERVER) {
                 errno.set(ZError.ECONNREFUSED);
                 return ZError.ECONNREFUSED;
             }
 
             //  Create a bi-directional pipe that will connect
             //  session with zap socket.
-            ZObject[] parents = { this, peer.socket };
+            ZObject[] parents = { this, peer.getSocket() };
             int[] hwms = { 0, 0 };
             boolean[] conflates = { false, false };
             Pipe[] pipes = Pipe.pair(parents, hwms, conflates);
@@ -327,10 +327,10 @@ public class SessionBase extends Own implements Pipe.IPipeEvents, IPollEvents
             zapPipe.setNoDelay();
             zapPipe.setEventSink(this);
 
-            sendBind(peer.socket, pipes[1], false);
+            sendBind(peer.getSocket(), pipes[1], false);
 
             //  Send empty identity if required by the peer.
-            if (peer.options.recvIdentity) {
+            if (peer.getOptions().recvIdentity) {
                 Msg id = new Msg();
                 id.setFlags(Msg.IDENTITY);
                 zapPipe.write(id);
