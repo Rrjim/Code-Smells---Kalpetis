@@ -44,6 +44,12 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             return "EndpointPipe [endpoint=" + endpoint + ", pipe=" + pipe + "]";
         }
     }
+    
+
+    private Options getOptions() {
+		// TODO Auto-generated method stub
+		return options;
+	}
 
     //  Map of open endpoints.
     private final MultiMap<String, EndpointPipe> endpoints;
@@ -122,9 +128,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         monitorSocket = null;
         monitorEvents = 0;
 
-        options.socketId = sid;
-        options.ipv6 = parent.get(ZMQ.ZMQ_IPV6) != 0;
-        options.linger = parent.get(ZMQ.ZMQ_BLOCKY) != 0 ? -1 : 0;
+        getOptions().socketId = sid;
+        getOptions().ipv6 = parent.get(ZMQ.ZMQ_IPV6) != 0;
+        getOptions().linger = parent.get(ZMQ.ZMQ_BLOCKY) != 0 ? -1 : 0;
 
         endpoints = new MultiMap<>();
         inprocs = new MultiMap<>();
@@ -136,7 +142,8 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         mailbox = new Mailbox(parent, "socket-" + sid, tid);
     }
 
-    //  Concrete algorithms for the x- methods are to be defined by
+
+	//  Concrete algorithms for the x- methods are to be defined by
     //  individual socket types.
     protected abstract void xattachPipe(Pipe pipe, boolean subscribe2all, boolean isLocallyInitiated);
 
@@ -201,7 +208,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             //  Check whether socket type and transport protocol match.
             //  Specifically, multicast protocols can't be combined with
             //  bi-directional messaging patterns (socket types).
-            if (!proto.compatible(options.type)) {
+            if (!proto.compatible(getOptions().type)) {
                 errno.set(ZError.ENOCOMPATPROTO);
                 return null;
             }
@@ -257,7 +264,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
             //  If the socket type doesn't support the option, pass it to
             //  the generic option parser.
-            rc = options.setSocketOpt(option, optval);
+            rc = getOptions().setSocketOpt(option, optval);
             if (rc) {
                 errno.set(0);
             }
@@ -297,7 +304,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
                 }
                 return val;
             }
-            Object val = options.getSocketOpt(option);
+            Object val = getOptions().getSocketOpt(option);
             if (val instanceof Integer) {
                 return (Integer) val;
             }
@@ -349,7 +356,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         }
         //  If the socket type doesn't support the option, pass it to
         //  the generic option parser.
-        return options.getSocketOpt(option);
+        return getOptions().getSocketOpt(option);
     }
 
     public final boolean bind(final String addr)
@@ -362,7 +369,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
                 return false;
             }
 
-            options.mechanism.check(options);
+            getOptions().mechanism.check(getOptions());
 
             //  Process pending commands, if any.
             boolean brc = processCommands(0, false, null);
@@ -380,12 +387,12 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
             switch (protocol) {
             case inproc: {
-                Ctx.Endpoint endpoint = new Ctx.Endpoint(this, options);
+                Ctx.Endpoint endpoint = new Ctx.Endpoint(this, getOptions());
                 boolean rc = registerEndpoint(addr, endpoint);
                 if (rc) {
                     connectPending(addr, this);
                     // Save last endpoint URI
-                    options.lastEndpoint = addr;
+                    getOptions().lastEndpoint = addr;
                 }
                 else {
                     errno.set(ZError.EADDRINUSE);
@@ -407,13 +414,13 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             case tipc: {
                 //  Remaining transports require to be run in an I/O thread, so at this
                 //  point we'll choose one.
-                IOThread ioThread = chooseIoThread(options.affinity);
+                IOThread ioThread = chooseIoThread(getOptions().affinity);
                 if (ioThread == null) {
                     errno.set(ZError.EMTHREAD);
                     return false;
                 }
 
-                Listener listener = protocol.getListener(ioThread, this, options);
+                Listener listener = protocol.getListener(ioThread, this, getOptions());
                 boolean rc = listener.setAddress(address);
                 if (!rc) {
                     listener.destroy();
@@ -422,9 +429,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
                 }
 
                 // Save last endpoint URI
-                options.lastEndpoint = listener.getAddress();
+                getOptions().lastEndpoint = listener.getAddress();
 
-                addEndpoint(options.lastEndpoint, listener, null);
+                addEndpoint(getOptions().lastEndpoint, listener, null);
                 return true;
             }
             default:
@@ -453,7 +460,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         lock();
 
         try {
-            if (options.type != ZMQ.ZMQ_PEER && options.type != ZMQ.ZMQ_RAW) {
+            if (getOptions().type != ZMQ.ZMQ_PEER && getOptions().type != ZMQ.ZMQ_RAW) {
                 errno.set(ZError.ENOTSUP);
                 return 0;
             }
@@ -463,7 +470,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
                 return 0;
             }
 
-            return options.peerLastRoutingId;
+            return getOptions().peerLastRoutingId;
         }
         finally {
             unlock();
@@ -477,7 +484,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             return false;
         }
 
-        options.mechanism.check(options);
+        getOptions().mechanism.check(getOptions());
 
         //  Process pending commands, if any.
         boolean brc = processCommands(0, false, null);
@@ -503,25 +510,25 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             // The total HWM for an inproc connection should be the sum of
             // the binder's HWM and the connector's HWM.
             int sndhwm = 0;
-            if (peer.socket == null) {
-                sndhwm = options.sendHwm;
+            if (peer.getSocket() == null) {
+                sndhwm = getOptions().sendHwm;
             }
-            else if (options.sendHwm != 0 && peer.options.recvHwm != 0) {
-                sndhwm = options.sendHwm + peer.options.recvHwm;
+            else if (getOptions().sendHwm != 0 && peer.getOptions().recvHwm != 0) {
+                sndhwm = getOptions().sendHwm + peer.getOptions().recvHwm;
             }
             int rcvhwm = 0;
-            if (peer.socket == null) {
-                rcvhwm = options.recvHwm;
+            if (peer.getSocket() == null) {
+                rcvhwm = getOptions().recvHwm;
             }
-            else if (options.recvHwm != 0 && peer.options.sendHwm != 0) {
-                rcvhwm = options.recvHwm + peer.options.sendHwm;
+            else if (getOptions().recvHwm != 0 && peer.getOptions().sendHwm != 0) {
+                rcvhwm = getOptions().recvHwm + peer.getOptions().sendHwm;
             }
 
             //  Create a bi-directional pipe to connect the peers.
-            ZObject[] parents = {this, peer.socket == null ? this : peer.socket};
+            ZObject[] parents = {this, peer.getSocket() == null ? this : peer.getSocket()};
 
-            boolean conflate = options.conflate && (options.type == ZMQ.ZMQ_DEALER || options.type == ZMQ.ZMQ_PULL
-                    || options.type == ZMQ.ZMQ_PUSH || options.type == ZMQ.ZMQ_PUB || options.type == ZMQ.ZMQ_SUB);
+            boolean conflate = getOptions().conflate && (getOptions().type == ZMQ.ZMQ_DEALER || getOptions().type == ZMQ.ZMQ_PULL
+                    || getOptions().type == ZMQ.ZMQ_PUSH || getOptions().type == ZMQ.ZMQ_PUB || getOptions().type == ZMQ.ZMQ_SUB);
 
             int[] hwms = {conflate ? -1 : sndhwm, conflate ? -1 : rcvhwm};
             boolean[] conflates = {conflate, conflate};
@@ -530,32 +537,32 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             //  Attach local end of the pipe to this socket object.
             attachPipe(pipes[0], true);
 
-            if (peer.socket == null) {
+            if (peer.getSocket() == null) {
                 //  The peer doesn't exist yet so we don't know whether
                 //  to send the identity message or not. To resolve this,
                 //  we always send our identity and drop it later if
                 //  the peer doesn't expect it.
-                Msg id = new Msg(options.identitySize);
-                id.put(options.identity, 0, options.identitySize);
+                Msg id = new Msg(getOptions().identitySize);
+                id.put(getOptions().identity, 0, getOptions().identitySize);
                 id.setFlags(Msg.IDENTITY);
                 boolean written = pipes[0].write(id);
                 assert (written);
                 pipes[0].flush();
 
                 //  If set, send the hello msg of the local socket to the peer.
-                if (options.canSendHelloMsg && options.helloMsg != null) {
-                    written = pipes[0].write(options.helloMsg);
+                if (getOptions().canSendHelloMsg && getOptions().helloMsg != null) {
+                    written = pipes[0].write(getOptions().helloMsg);
                     assert (written);
                     pipes[0].flush();
                 }
 
-                pendConnection(addr, new Ctx.Endpoint(this, options), pipes);
+                pendConnection(addr, new Ctx.Endpoint(this, getOptions()), pipes);
             }
             else {
                 //  If required, send the identity of the peer to the local socket.
-                if (peer.options.recvIdentity) {
-                    Msg id = new Msg(options.identitySize);
-                    id.put(options.identity, 0, options.identitySize);
+                if (peer.getOptions().recvIdentity) {
+                    Msg id = new Msg(getOptions().identitySize);
+                    id.put(getOptions().identity, 0, getOptions().identitySize);
                     id.setFlags(Msg.IDENTITY);
                     boolean written = pipes[0].write(id);
                     assert (written);
@@ -563,9 +570,9 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
                 }
 
                 //  If required, send the identity of the local socket to the peer.
-                if (options.recvIdentity) {
-                    Msg id = new Msg(peer.options.identitySize);
-                    id.put(peer.options.identity, 0, peer.options.identitySize);
+                if (getOptions().recvIdentity) {
+                    Msg id = new Msg(peer.getOptions().identitySize);
+                    id.put(peer.getOptions().identity, 0, peer.getOptions().identitySize);
                     id.setFlags(Msg.IDENTITY);
                     boolean written = pipes[1].write(id);
                     assert (written);
@@ -573,31 +580,31 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
                 }
 
                 //  If set, send the hello msg of the local socket to the peer.
-                if (options.canSendHelloMsg && options.helloMsg != null) {
-                    boolean written = pipes[0].write(options.helloMsg);
+                if (getOptions().canSendHelloMsg && getOptions().helloMsg != null) {
+                    boolean written = pipes[0].write(getOptions().helloMsg);
                     assert (written);
                     pipes[0].flush();
                 }
 
                 //  If set, send the hello msg of the peer to the local socket.
-                if (peer.options.canSendHelloMsg && peer.options.helloMsg != null) {
-                    boolean written = pipes[1].write(peer.options.helloMsg);
+                if (peer.getOptions().canSendHelloMsg && peer.getOptions().helloMsg != null) {
+                    boolean written = pipes[1].write(peer.getOptions().helloMsg);
                     assert (written);
                     pipes[1].flush();
                 }
 
-                if (peer.options.canReceiveDisconnectMsg && peer.options.disconnectMsg != null) {
-                    pipes[0].setDisconnectMsg(peer.options.disconnectMsg);
+                if (peer.getOptions().canReceiveDisconnectMsg && peer.getOptions().disconnectMsg != null) {
+                    pipes[0].setDisconnectMsg(peer.getOptions().disconnectMsg);
                 }
 
                 //  Attach remote end of the pipe to the peer socket. Note that peer's
                 //  seqnum was incremented in findEndpoint function. We don't need it
                 //  increased here.
-                sendBind(peer.socket, pipes[1], false);
+                sendBind(peer.getSocket(), pipes[1], false);
             }
 
             // Save last endpoint URI
-            options.lastEndpoint = addr;
+            getOptions().lastEndpoint = addr;
 
             // remember inproc connections for disconnect
             inprocs.insert(addr, pipes[0]);
@@ -605,8 +612,8 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             return true;
         }
 
-        boolean isSingleConnect = options.type == ZMQ.ZMQ_DEALER || options.type == ZMQ.ZMQ_SUB
-                || options.type == ZMQ.ZMQ_REQ;
+        boolean isSingleConnect = getOptions().type == ZMQ.ZMQ_DEALER || getOptions().type == ZMQ.ZMQ_SUB
+                || getOptions().type == ZMQ.ZMQ_REQ;
 
         if (isSingleConnect) {
             if (endpoints.hasValues(addr)) {
@@ -618,7 +625,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         }
 
         //  Choose the I/O thread to run the session in.
-        IOThread ioThread = chooseIoThread(options.affinity);
+        IOThread ioThread = chooseIoThread(getOptions().affinity);
         if (ioThread == null) {
             errno.set(ZError.EMTHREAD);
             return false;
@@ -626,10 +633,10 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         Address paddr = new Address(protocol, address);
 
         //  Resolve address (if needed by the protocol)
-        protocol.resolve(paddr, options.ipv6);
+        protocol.resolve(paddr, getOptions().ipv6);
 
         //  Create session.
-        SessionBase session = Sockets.createSession(ioThread, true, this, options, paddr);
+        SessionBase session = Sockets.createSession(ioThread, true, this, getOptions(), paddr);
         assert (session != null);
 
         //  PGM does not support subscription forwarding; ask for all data to be
@@ -638,13 +645,13 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
         Pipe newpipe = null;
 
-        if (options.immediate || subscribe2all) {
+        if (getOptions().immediate || subscribe2all) {
             //  Create a bi-directional pipe.
             ZObject[] parents = {this, session};
-            boolean conflate = options.conflate && (options.type == ZMQ.ZMQ_DEALER || options.type == ZMQ.ZMQ_PULL
-                    || options.type == ZMQ.ZMQ_PUSH || options.type == ZMQ.ZMQ_PUB || options.type == ZMQ.ZMQ_SUB);
+            boolean conflate = getOptions().conflate && (getOptions().type == ZMQ.ZMQ_DEALER || getOptions().type == ZMQ.ZMQ_PULL
+                    || getOptions().type == ZMQ.ZMQ_PUSH || getOptions().type == ZMQ.ZMQ_PUB || getOptions().type == ZMQ.ZMQ_SUB);
 
-            int[] hwms = {conflate ? -1 : options.sendHwm, conflate ? -1 : options.recvHwm};
+            int[] hwms = {conflate ? -1 : getOptions().sendHwm, conflate ? -1 : getOptions().recvHwm};
             boolean[] conflates = {conflate, conflate};
             Pipe[] pipes = Pipe.pair(parents, hwms, conflates);
 
@@ -656,7 +663,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
         }
 
         // Save last endpoint URI
-        options.lastEndpoint = paddr.toString();
+        getOptions().lastEndpoint = paddr.toString();
 
         addEndpoint(addr, session, newpipe);
         return true;
@@ -735,12 +742,12 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
                 boolean endpoint = endpoints.hasValues(resolvedAddress);
                 if (!endpoint) {
                     // TODO V4 resolve TCP address when unbinding
-                    IZAddress address = protocol.zresolve(uri.getAddress(), options.ipv6);
+                    IZAddress address = protocol.zresolve(uri.getAddress(), getOptions().ipv6);
                     resolvedAddress = address.address().toString();
                     endpoint = endpoints.hasValues(resolvedAddress);
                     if (!endpoint) {
                         // no luck, try with local resolution
-                        InetSocketAddress socketAddress = address.resolve(uri.getAddress(), options.ipv6, true);
+                        InetSocketAddress socketAddress = address.resolve(uri.getAddress(), getOptions().ipv6, true);
                         resolvedAddress = socketAddress.toString();
                     }
                 }
@@ -820,13 +827,13 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
             //  In case of non-blocking send we'll simply propagate
             //  the error - including EAGAIN - up the stack.
-            if ((flags & ZMQ.ZMQ_DONTWAIT) > 0 || options.sendTimeout == 0) {
+            if ((flags & ZMQ.ZMQ_DONTWAIT) > 0 || getOptions().sendTimeout == 0) {
                 return false;
             }
 
             //  Compute the time when the timeout should occur.
             //  If the timeout is infinite, don't care.
-            int timeout = options.sendTimeout;
+            int timeout = getOptions().sendTimeout;
             long end = timeout < 0 ? 0 : (Clock.nowMS() + timeout);
 
             //  Oops, we couldn't send the message. Wait for the next
@@ -913,7 +920,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
             //  For non-blocking recv, commands are processed in case there's an
             //  activate_reader command already waiting in a command pipe.
             //  If it's not, return EAGAIN.
-            if ((flags & ZMQ.ZMQ_DONTWAIT) > 0 || options.recvTimeout == 0) {
+            if ((flags & ZMQ.ZMQ_DONTWAIT) > 0 || getOptions().recvTimeout == 0) {
                 if (!processCommands(0, false, canceled)) {
                     return null;
                 }
@@ -929,7 +936,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
             //  Compute the time when the timeout should occur.
             //  If the timeout is infinite, don't care.
-            int timeout = options.recvTimeout;
+            int timeout = getOptions().recvTimeout;
             long end = timeout < 0 ? 0 : (Clock.nowMS() + timeout);
 
             //  In blocking scenario, commands are processed over and over again until
@@ -1365,7 +1372,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     @Override
     public final void hiccuped(Pipe pipe)
     {
-        if (!options.immediate) {
+        if (!getOptions().immediate) {
             pipe.terminate(false);
         }
         else {
@@ -1397,7 +1404,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     {
         //  Test whether IDENTITY flag is valid for this socket type.
         if (msg.isIdentity()) {
-            assert (options.recvIdentity);
+            assert (getOptions().recvIdentity);
         }
 
         //  Remove MORE flag.
@@ -1593,7 +1600,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
     @Override
     public String toString()
     {
-        return getClass().getSimpleName() + "[" + options.socketId + "]";
+        return getClass().getSimpleName() + "[" + getOptions().socketId + "]";
     }
 
     public final SelectableChannel getFD()
@@ -1608,7 +1615,7 @@ public abstract class SocketBase extends Own implements IPollEvents, Pipe.IPipeE
 
     public String typeString()
     {
-        return Sockets.name(options.type);
+        return Sockets.name(getOptions().type);
     }
 
     public final int errno()

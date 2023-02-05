@@ -49,14 +49,23 @@ public class Ctx
 
     public static class Endpoint
     {
-        public final SocketBase socket;
-        public final Options    options;
+        private final SocketBase socket;
+        private final Options    options;
 
         public Endpoint(SocketBase socket, Options options)
         {
             this.socket = socket;
             this.options = options;
         }
+        
+        public SocketBase getSocket() {
+        	return socket;
+        }
+        
+        public Options getOptions() {
+        	return options;
+        }
+
 
     }
 
