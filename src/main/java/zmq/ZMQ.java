@@ -271,7 +271,7 @@ public class ZMQ
         public final int    event;
         public final String addr;
         public final Object arg;
-        private final int   flag;
+        private int flag;
 
         public Event(int event, String addr, Object arg)
         {
@@ -300,9 +300,6 @@ public class ZMQ
         public boolean write(SocketBase s)
         {
             int size = 4 + 1 + addr.length() + 1; // event + len(addr) + addr + flag
-            if (flag == VALUE_INTEGER || flag == VALUE_CHANNEL) {
-                size += 4;
-            }
 
             ByteBuffer buffer = ByteBuffer.allocate(size).order(ByteOrder.BIG_ENDIAN);
             buffer.putInt(event);
@@ -310,10 +307,12 @@ public class ZMQ
             buffer.put(addr.getBytes(CHARSET));
             buffer.put((byte) flag);
             if (flag == VALUE_INTEGER) {
+            	size += 4;
                 buffer.putInt((Integer) arg);
             }
             else if (flag == VALUE_CHANNEL) {
                 int channeldId = s.getCtx().forwardChannel((SelectableChannel) arg);
+            	size += 4;
                 buffer.putInt(channeldId);
             }
             buffer.flip();
