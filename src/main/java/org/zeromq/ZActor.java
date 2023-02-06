@@ -327,6 +327,14 @@ public class ZActor extends ZStar
             this.main = main;
             this.shadow = shadow;
         }
+        
+        public Socket getSocket(Socket socket) {
+        	return socket;
+        }
+        
+        public Socket getPipe(Socket pipe) {
+        	return pipe;
+        }
 
         @Override
         public String premiere(final Socket pipe)

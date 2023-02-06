@@ -57,15 +57,16 @@ public class Ctx
             this.socket = socket;
             this.options = options;
         }
-        
-        public SocketBase getSocket() {
-        	return socket;
-        }
-        
-        public Options getOptions() {
-        	return options;
-        }
 
+		public SocketBase getSocket() {
+			// TODO Auto-generated method stub
+			return socket;
+		}
+
+		public Options getOptions() {
+			// TODO Auto-generated method stub
+			return options;
+		}
 
     }
 
